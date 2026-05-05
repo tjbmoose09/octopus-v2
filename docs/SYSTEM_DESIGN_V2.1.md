@@ -333,7 +333,7 @@ Per Tyler's spec: connect agents to GitHub, post all chats into a log repo, all 
 1. **A GitHub Personal Access Token (fine-grained, not classic)**
    - Scopes: `repo`, `workflow`, `project` (for Projects v2 access).
    - Stored in `.env` as `GITHUB_TOKEN=<token>`.
-   - **SECURITY NOTE:** Do not paste raw account passwords into project instructions or memory files. Passwords give full account access; a scoped PAT is revocable and auditable. The password currently in the project instructions should be rotated on GitHub immediately and replaced with a PAT-only flow.
+   - **SECURITY NOTE:** Do not paste raw account credentials into project instructions or memory files. Use a scoped, revocable, auditable PAT-only flow.
 
 2. **Three private repositories (auto-created on first run if missing):**
    - `octopus-chats-log` — daily logs, chat transcripts, handoff notes. Mirrors `vault/chat_logs/` and `vault/daily_notes/`.
@@ -498,7 +498,7 @@ Tyler's answers to the open questions, captured here so future sessions have the
 
 3. **Phase ordering** — **Phases 0 through 2 in sequence**, then pause for review before Phase 3+. That gets Tyler: log-spam fixed → memory layer rebuilt → auto-compact/watchdogs working. ~4-5 days elapsed. UI + GitHub + RAG come after.
 
-4. **GitHub authentication** — Tyler will rotate his password and create a fine-grained PAT himself, then drop it in `.env` as `GITHUB_TOKEN`. Claude will NOT save the password that was in project instructions to any memory file. Recommendation to Tyler: remove the password from the project-instructions text in the Cowork UI as well (since it's now been logged in the conversation), and rely solely on the `.env` PAT going forward.
+4. **GitHub authentication** — Tyler will create a fine-grained PAT himself, then drop it in `.env` as `GITHUB_TOKEN`. Project instructions and memory files should never store account credentials; rely solely on the `.env` PAT going forward.
 
 ### Still open (decide before their relevant phase starts)
 

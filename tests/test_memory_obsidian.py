@@ -57,7 +57,7 @@ async def run_tests():
     print(f"{BOLD}{CYAN}═══════════════════════════════════════════════════{RESET}")
     print(f"\n  Obsidian URL:  {config.obsidian_url}")
     print(f"  Vault:         {config.vault_name}")
-    print(f"  API Key:       {config.obsidian_api_key[:12]}...")
+    print("  API Key:       [configured]" if config.obsidian_api_key else "  API Key:       [not configured]")
     print()
 
     client = ObsidianMemoryClient()
@@ -78,7 +78,7 @@ async def run_tests():
         print(f"  Make sure:")
         print(f"    1. Obsidian is open")
         print(f"    2. 'Local REST API' community plugin is installed and enabled")
-        print(f"    3. The API key in the plugin matches: {config.obsidian_api_key[:20]}...")
+        print("    3. The API key in the plugin matches the OBSIDIAN_API_KEY value in your environment")
         print(f"    4. The plugin is listening on port 27124")
         return
 
