@@ -1,0 +1,161 @@
+@import "tailwindcss";
+
+/* ===========================================================================
+   Octopus V2.2 — Theme tokens
+   Mainline palette mirrors config/zones.py::ZONE_UI_THEME[MAINLINE_ZONE].
+   Hacker-Zone palette mirrors ZONE_UI_THEME[HACKER_ZONE].
+   `data-zone="hacker_zone"` on <html> swaps the whole surface.
+=========================================================================== */
+
+:root {
+  /* Base surfaces (both zones) */
+  --bg-0: #05070d;
+  --bg-1: #0a0e17;
+  --bg-2: #0d1525;
+  --bg-3: #121b2e;
+
+  /* Hairlines */
+  --line-1: #1b2a44;
+  --line-2: #24375a;
+
+  /* Text */
+  --fg-0: #e6f2ff;
+  --fg-1: #b7c5d9;
+  --fg-2: #8aa0c0;
+  --fg-3: #5f7494;
+
+  /* Accent — mainline */
+  --accent: #00e5ff;
+  --accent-soft: #00e5ff33;
+  --accent-glow: #00e5ff55;
+  --accent-edge: #4e6fff;
+
+  /* Cursor-style semantic */
+  --ok: #3ce28f;
+  --warn: #ffb84a;
+  --err: #ff5a78;
+  --thinking: #9a7dff;
+
+  /* Type rhythm */
+  --mono: ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, Consolas, monospace;
+}
+
+html[data-zone="hacker_zone"] {
+  --accent: #ff2d7a;
+  --accent-soft: #ff2d7a33;
+  --accent-glow: #ff2d7a55;
+  --accent-edge: #7a00ff;
+  --bg-1: #120616;
+  --bg-2: #1a0820;
+  --bg-3: #240a2d;
+  --line-1: #3a1240;
+  --line-2: #51195a;
+}
+
+html, body, #root { background: var(--bg-0); color: var(--fg-0); }
+
+/* ---------- Scrollbars ---------- */
+.scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
+.scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+.scrollbar-thin::-webkit-scrollbar-thumb { background: var(--line-1); border-radius: 3px; }
+.scrollbar-thin::-webkit-scrollbar-thumb:hover { background: var(--line-2); }
+
+::selection { background: var(--accent-soft); color: var(--fg-0); }
+
+/* Focus ring uses the active accent */
+*:focus-visible {
+  outline: 1px solid var(--accent-glow);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* ---------- Animations ---------- */
+@keyframes breathe {
+  0%, 100% { opacity: 0.6; transform: scale(1); }
+  50%      { opacity: 1;   transform: scale(1.05); }
+}
+@keyframes tentacle-pulse {
+  0%   { stroke-dashoffset: 0;   opacity: 0.9; }
+  100% { stroke-dashoffset: -24; opacity: 0.3; }
+}
+@keyframes dot-blink {
+  0%, 80%, 100% { opacity: 0.25; }
+  40%           { opacity: 1; }
+}
+@keyframes slide-up {
+  from { transform: translateY(16px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+@keyframes shimmer {
+  0%   { background-position: -120% 0; }
+  100% { background-position: 220% 0; }
+}
+
+.anim-breathe { animation: breathe 2.4s ease-in-out infinite; }
+.anim-pulse   { animation: tentacle-pulse 1.4s linear infinite; }
+.anim-slide-up{ animation: slide-up 260ms ease-out both; }
+.shimmer-bg {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--accent-soft),
+    transparent
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.8s linear infinite;
+}
+
+.dot-blink > span { animation: dot-blink 1.4s infinite both; }
+.dot-blink > span:nth-child(2) { animation-delay: 0.16s; }
+.dot-blink > span:nth-child(3) { animation-delay: 0.32s; }
+
+/* ---------- Typographic helpers ---------- */
+.mono { font-family: var(--mono); }
+.caps { text-transform: uppercase; letter-spacing: 0.08em; font-size: 10px; }
+
+/* ---------- "Cursor Agent" terminal card ---------- */
+.terminal-card {
+  background: linear-gradient(180deg, #0d1525 0%, #0a0e17 100%);
+  border: 1px solid var(--line-1);
+  border-radius: 12px;
+  box-shadow: 0 0 0 1px var(--line-1), 0 20px 40px -20px #000;
+}
+.terminal-card .bar {
+  height: 28px; display: flex; align-items: center; gap: 6px;
+  padding: 0 12px; border-bottom: 1px solid var(--line-1);
+  color: var(--fg-2); font-size: 11px; letter-spacing: 0.04em;
+}
+.terminal-card .dot { width: 10px; height: 10px; border-radius: 50%; }
+.terminal-card .dot.r { background: #ff5f56; }
+.terminal-card .dot.y { background: #ffbd2e; }
+.terminal-card .dot.g { background: #27c93f; }
+
+/* ---------- Zone border glow (used on TopBar + LogDrawer) ---------- */
+.zone-glow {
+  box-shadow:
+    inset 0 1px 0 var(--line-2),
+    0 0 0 1px var(--line-1),
+    0 0 24px -6px var(--accent-glow);
+}
+
+/* ---------- Untitled UI-style section cards ---------- */
+.uui-card {
+  background: var(--bg-1);
+  border: 1px solid var(--line-1);
+  border-radius: 14px;
+}
+.uui-card + .uui-card { margin-top: 14px; }
+
+/* ---------- Pill / tab ---------- */
+.pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px; border-radius: 999px;
+  font-size: 12px; line-height: 1;
+  background: var(--bg-2); color: var(--fg-1);
+  border: 1px solid var(--line-1);
+}
+.pill.active {
+  background: var(--accent-soft);
+  color: var(--fg-0);
+  border-color: var(--accent);
+}

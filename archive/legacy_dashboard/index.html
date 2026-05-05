@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OCTOPUS V2 — Agent Mesh</title>
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box}
+        :root{
+            --bg:#0a0a0f;--bg2:#111118;--card:#16161f;--card-h:#1c1c28;
+            --pink:#ff00ff;--cyan:#00ffff;--green:#00ff41;--yellow:#ffff00;
+            --red:#ff4444;--orange:#ff8800;--purple:#aa44ff;--blue:#4488ff;--teal:#44ffaa;
+            --txt:#e0e0e0;--txt2:#888;--dim:#555;--border:#2a2a3a;
+        }
+        body{font-family:'Courier New',monospace;background:var(--bg);color:var(--txt);min-height:100vh;overflow-x:hidden}
+        body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(transparent,transparent 2px,rgba(0,0,0,.08) 2px,rgba(0,0,0,.08) 4px);pointer-events:none;z-index:9999}
+        body::after{content:'';position:fixed;inset:0;background:linear-gradient(90deg,rgba(255,0,255,.03) 1px,transparent 1px),linear-gradient(rgba(0,255,255,.03) 1px,transparent 1px);background-size:60px 60px;pointer-events:none;z-index:-1;animation:grid 20s linear infinite}
+        @keyframes grid{to{transform:translate(60px,60px)}}
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:.7}}
+        @keyframes blink{0%,100%{opacity:1}50%{opacity:.4}}
+        @keyframes dash{to{stroke-dashoffset:-24}}
+        @keyframes fadeIn{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:translateX(0)}}
+        @keyframes glowPulse{0%,100%{opacity:.6}50%{opacity:1}}
+
+        /* Header */
+        header{background:linear-gradient(180deg,var(--bg2),transparent);border-bottom:1px solid var(--pink);box-shadow:0 0 15px rgba(255,0,255,.3);padding:12px 20px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:100}
+        .logo{display:flex;align-items:center;gap:10px}
+        .logo-icon{font-size:28px;filter:drop-shadow(0 0 10px var(--pink));animation:pulse 2s ease-in-out infinite}
+        .logo h1{font-size:18px;letter-spacing:4px;text-transform:uppercase;background:linear-gradient(90deg,var(--pink),var(--cyan));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        .logo .ver{font-size:9px;color:var(--cyan);letter-spacing:2px;text-shadow:0 0 5px var(--cyan)}
+        .status-bar{display:flex;gap:16px;align-items:center;font-size:10px}
+        .si{display:flex;align-items:center;gap:5px}
+        .dot{width:7px;height:7px;border-radius:50%;animation:blink 1.5s infinite}
+        .dot.on{background:var(--green);box-shadow:0 0 5px var(--green)}
+        .dot.off{background:var(--red);box-shadow:0 0 5px var(--red)}
+        .dot.wait{background:var(--yellow);box-shadow:0 0 5px var(--yellow)}
+
+        /* Nav tabs */
+        .tabs{display:flex;gap:2px;padding:0 20px;background:var(--bg2);border-bottom:1px solid var(--border);overflow-x:auto}
+        .tab{padding:10px 16px;font-size:11px;letter-spacing:1px;cursor:pointer;border-bottom:2px solid transparent;color:var(--txt2);transition:all .2s;white-space:nowrap;font-family:inherit}
+        .tab:hover{color:var(--txt);background:rgba(255,0,255,.05)}
+        .tab.active{color:var(--pink);border-bottom-color:var(--pink)}
+
+        /* Main */
+        .main{padding:16px 20px;max-width:1600px;margin:0 auto}
+        .panel{display:none}.panel.active{display:block}
+
+        /* Grid layouts */
+        .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+        .grid3{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+        .full{grid-column:1/-1}
+
+        /* Card */
+        .card{background:var(--card);border:1px solid var(--border);border-radius:4px;overflow:hidden;transition:border-color .3s,box-shadow .3s}
+        .card:hover{background:var(--card-h)}
+        .ch{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--border);font-size:11px;letter-spacing:2px;text-transform:uppercase}
+        .ch .t{display:flex;align-items:center;gap:6px}
+        .cb{padding:14px}
+
+        /* Agent cards */
+        .ac{border-left:3px solid;transition:all .2s;cursor:pointer}
+        .ac:hover{transform:translateY(-2px)}
+        .ac .top{display:flex;justify-content:space-between;align-items:center}
+        .ac .name{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:bold}
+        .ac .emoji{font-size:18px}
+        .badge{font-size:9px;padding:2px 7px;border-radius:2px;text-transform:uppercase;letter-spacing:1px}
+        .badge.idle{background:rgba(0,255,65,.15);color:var(--green);border:1px solid rgba(0,255,65,.3)}
+        .badge.busy{background:rgba(255,255,0,.15);color:var(--yellow);border:1px solid rgba(255,255,0,.3)}
+        .badge.error{background:rgba(255,68,68,.15);color:var(--red);border:1px solid rgba(255,68,68,.3)}
+        .badge.offline{background:rgba(85,85,85,.15);color:var(--dim);border:1px solid rgba(85,85,85,.3)}
+        .ac .desc{font-size:10px;color:var(--txt2);margin-top:6px;line-height:1.5}
+        .ac .model{font-size:9px;color:var(--cyan);margin-top:6px}
+        .ac .score{font-size:9px;color:var(--green)}
+
+        /* SVG viz */
+        .octopus-viz{width:100%;height:460px;position:relative}
+        .tentacle-line{stroke-dasharray:8 4;animation:dash 2s linear infinite}
+        .tentacle-line.active{stroke-width:3;animation:dash .5s linear infinite,glowPulse 1s ease-in-out infinite}
+        .node-label{font-family:'Courier New',monospace;font-size:11px;fill:var(--txt);text-anchor:middle;pointer-events:none}
+        .node-status{font-family:'Courier New',monospace;font-size:9px;text-anchor:middle;pointer-events:none}
+
+        /* Pipeline */
+        .pipe-wrap{max-height:280px;overflow-y:auto;font-size:11px}
+        .pipe-wrap::-webkit-scrollbar{width:4px}
+        .pipe-wrap::-webkit-scrollbar-thumb{background:var(--pink);border-radius:2px}
+        .pe{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(42,42,58,.5);animation:fadeIn .3s ease-out}
+        .pe .t{color:var(--dim);font-size:9px;min-width:65px}
+        .pe .arr{color:var(--pink)}
+        .pe .typ{font-size:9px;padding:1px 5px;border-radius:2px;text-transform:uppercase}
+        .typ.assign{background:rgba(0,255,255,.15);color:var(--cyan)}
+        .typ.complete{background:rgba(0,255,65,.15);color:var(--green)}
+        .typ.fail{background:rgba(255,68,68,.15);color:var(--red)}
+        .pe .prev{color:var(--txt2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+        /* Chat */
+        .chat-c{display:flex;flex-direction:column;height:380px}
+        .msgs{flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:10px}
+        .msgs::-webkit-scrollbar{width:4px}
+        .msgs::-webkit-scrollbar-thumb{background:var(--cyan);border-radius:2px}
+        .msg{max-width:80%;padding:8px 12px;border-radius:4px;font-size:11px;line-height:1.6}
+        .msg.user{align-self:flex-end;background:rgba(255,0,255,.1);border:1px solid rgba(255,0,255,.3)}
+        .msg.agent{align-self:flex-start;background:rgba(0,255,255,.05);border:1px solid rgba(0,255,255,.2)}
+        .msg .mh{font-size:9px;color:var(--dim);margin-bottom:3px}
+        .msg pre{background:rgba(0,0,0,.3);padding:6px;border-radius:3px;overflow-x:auto;margin-top:6px;font-size:10px;white-space:pre-wrap;word-break:break-all}
+        .chat-in{display:flex;gap:6px;padding:10px;border-top:1px solid var(--border)}
+        .cinput{flex:1;background:var(--bg);border:1px solid var(--border);color:var(--txt);padding:8px 12px;font-family:inherit;font-size:12px;border-radius:3px;outline:none}
+        .cinput:focus{border-color:var(--cyan);box-shadow:0 0 5px rgba(0,255,255,.3)}
+        .cbtn{background:linear-gradient(135deg,var(--pink),var(--purple));border:none;color:#fff;padding:8px 16px;font-family:inherit;font-size:11px;text-transform:uppercase;letter-spacing:2px;cursor:pointer;border-radius:3px;transition:all .2s}
+        .cbtn:hover{box-shadow:0 0 15px rgba(255,0,255,.4)}
+        .cbtn:disabled{opacity:.5;cursor:not-allowed}
+
+        /* Benchmark */
+        .bbtn{background:linear-gradient(135deg,var(--cyan),var(--blue));border:none;color:var(--bg);padding:8px 18px;font-family:inherit;font-size:11px;font-weight:bold;text-transform:uppercase;letter-spacing:2px;cursor:pointer;border-radius:3px}
+        .bbtn:hover{box-shadow:0 0 15px rgba(0,255,255,.4)}
+        .bbtn:disabled{opacity:.5}
+        .pbar{width:100%;height:18px;background:var(--bg);border:1px solid var(--border);border-radius:2px;overflow:hidden}
+        .pfill{height:100%;background:linear-gradient(90deg,var(--cyan),var(--green));box-shadow:0 0 5px var(--cyan);transition:width .5s}
+        .btable{width:100%;border-collapse:collapse;font-size:10px}
+        .btable th{text-align:left;padding:6px;border-bottom:1px solid var(--pink);color:var(--pink);text-transform:uppercase;letter-spacing:1px;font-size:9px}
+        .btable td{padding:6px;border-bottom:1px solid var(--border)}
+        .btable tr:hover{background:rgba(255,0,255,.05)}
+
+        /* System stats */
+        .stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
+        .stat{background:var(--bg);border:1px solid var(--border);padding:10px;border-radius:3px;text-align:center}
+        .stat .v{font-size:22px;font-weight:bold;margin:3px 0}
+        .stat .l{font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:1px}
+
+        /* Project board (kanban) */
+        .kanban{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;min-height:200px}
+        .kcol{background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:8px}
+        .kcol h3{font-size:10px;text-transform:uppercase;letter-spacing:2px;padding:4px 0 8px;border-bottom:1px solid var(--border);margin-bottom:8px}
+        .kcard{background:var(--card);border:1px solid var(--border);border-radius:3px;padding:8px;margin-bottom:6px;font-size:10px}
+        .kcard .kt{font-weight:bold;margin-bottom:3px}
+        .kcard .ka{color:var(--cyan);font-size:9px}
+
+        /* Devices */
+        .dtable{width:100%;border-collapse:collapse;font-size:11px}
+        .dtable th{text-align:left;padding:8px;border-bottom:1px solid var(--cyan);color:var(--cyan);text-transform:uppercase;letter-spacing:1px;font-size:10px}
+        .dtable td{padding:8px;border-bottom:1px solid var(--border)}
+
+        /* GitHub */
+        .gh-status{display:flex;gap:12px;align-items:center;margin-bottom:12px}
+        .gh-info{font-size:11px;color:var(--txt2);line-height:1.8}
+
+        /* Upload zone */
+        .upload-zone{border:2px dashed var(--border);border-radius:6px;padding:40px;text-align:center;cursor:pointer;transition:all .2s}
+        .upload-zone:hover{border-color:var(--cyan);background:rgba(0,255,255,.03)}
+        .upload-zone .icon{font-size:36px;margin-bottom:8px}
+        .upload-zone .label{font-size:12px;color:var(--txt2)}
+
+        /* Responsive */
+        @media(max-width:768px){.grid2,.kanban{grid-template-columns:1fr}.tabs{flex-wrap:nowrap}}
+        select{background:var(--bg);border:1px solid var(--border);color:var(--cyan);padding:4px 8px;font-family:monospace;font-size:10px;border-radius:2px}
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="logo">
+        <span class="logo-icon">🐙</span>
+        <div>
+            <h1>Octopus V2</h1>
+            <div class="ver">Agent Mesh System</div>
+        </div>
+    </div>
+    <div class="status-bar">
+        <div class="si"><div class="dot" id="lm-dot"></div><span id="lm-txt">LM Studio: Checking...</span></div>
+        <div class="si"><div class="dot on" id="ws-dot"></div><span>WS</span></div>
+        <div class="si" id="mcnt"><span id="model-count">0 Models</span></div>
+    </div>
+</header>
+
+<div class="tabs" id="tabs">
+    <div class="tab active" data-tab="agents">🐙 Agents</div>
+    <div class="tab" data-tab="pipeline">⚡ Pipeline</div>
+    <div class="tab" data-tab="chat">💬 Terminal</div>
+    <div class="tab" data-tab="projects">📋 Projects</div>
+    <div class="tab" data-tab="benchmark">🏁 Benchmark</div>
+    <div class="tab" data-tab="devices">📡 Devices</div>
+    <div class="tab" data-tab="upload">📁 Upload</div>
+    <div class="tab" data-tab="github">🔗 GitHub</div>
+    <div class="tab" data-tab="system">🖥️ System</div>
+</div>
+
+<div class="main">
+
+<!-- ========== AGENTS TAB ========== -->
+<div class="panel active" id="panel-agents">
+    <div class="card full" style="margin-bottom:14px">
+        <div class="ch"><div class="t">🐙 Agent Mesh — Octopus View</div><span style="color:var(--dim);font-size:9px">Click agent to command</span></div>
+        <div class="cb"><div class="octopus-viz"><svg class="octopus-svg" id="octopus-svg" viewBox="0 0 900 460"></svg></div></div>
+    </div>
+    <div class="grid3" id="agents-grid"></div>
+</div>
+
+<!-- ========== PIPELINE TAB ========== -->
+<div class="panel" id="panel-pipeline">
+    <div class="card">
+        <div class="ch"><div class="t">⚡ Pipeline — Real-Time Events</div><span style="color:var(--dim);font-size:9px" id="pipe-cnt">0 events</span></div>
+        <div class="cb"><div class="pipe-wrap" id="pipe-events"></div></div>
+    </div>
+</div>
+
+<!-- ========== CHAT TAB ========== -->
+<div class="panel" id="panel-chat">
+    <div class="card">
+        <div class="ch">
+            <div class="t">💬 Command Terminal</div>
+            <select id="chat-target">
+                <option value="">🧠 Orchestrator (Auto-route)</option>
+                <option value="dev">⚡ Dev Builder</option>
+                <option value="pm">📋 Project Manager</option>
+                <option value="qa">🧪 QA Engineer</option>
+                <option value="critic">🔥 Critic</option>
+                <option value="review">🔍 Code Reviewer</option>
+                <option value="devops">🚀 DevOps</option>
+                <option value="automation">🤖 Automation</option>
+                <option value="research">📡 Research</option>
+            </select>
+        </div>
+        <div class="chat-c">
+            <div class="msgs" id="chat-msgs">
+                <div class="msg agent"><div class="mh">🧠 ORCHESTRATOR</div>Octopus V2 online. Give me a task and I'll delegate to my arms.</div>
+            </div>
+            <div class="chat-in">
+                <input type="text" class="cinput" id="chat-input" placeholder="Enter command... (e.g. 'Build a Tetris game')">
+                <button class="cbtn" id="chat-send" onclick="sendChat()">EXECUTE</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ========== PROJECTS TAB ========== -->
+<div class="panel" id="panel-projects">
+    <div class="card">
+        <div class="ch"><div class="t">📋 Project Board</div><span style="color:var(--dim);font-size:9px" id="proj-cnt">0 projects</span></div>
+        <div class="cb">
+            <div class="kanban" id="kanban">
+                <div class="kcol"><h3 style="color:var(--txt2)">📥 Backlog</h3><div id="k-backlog"></div></div>
+                <div class="kcol"><h3 style="color:var(--yellow)">🔄 In Progress</h3><div id="k-progress"></div></div>
+                <div class="kcol"><h3 style="color:var(--orange)">🔍 Review</h3><div id="k-review"></div></div>
+                <div class="kcol"><h3 style="color:var(--green)">✅ Done</h3><div id="k-done"></div></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ========== BENCHMARK TAB ========== -->
+<div class="panel" id="panel-benchmark">
+    <div class="card">
+        <div class="ch">
+            <div class="t">🏁 Benchmark — Model Assignment</div>
+            <button class="bbtn" id="bench-btn" onclick="runBenchmark()">Run Benchmark</button>
+        </div>
+        <div class="cb">
+            <p style="font-size:11px;color:var(--txt2);margin-bottom:10px">Tests all LM Studio models against each agent role. Assigns the best model to each role based on speed, quality, and resource usage.</p>
+            <div id="bench-progress" style="display:none">
+                <div class="pbar"><div class="pfill" id="pfill" style="width:0%"></div></div>
+                <div style="font-size:9px;color:var(--txt2);margin-top:4px" id="ptxt">Initializing...</div>
+            </div>
+            <div id="bench-results" style="margin-top:12px"></div>
+        </div>
+    </div>
+</div>
+
+<!-- ========== DEVICES TAB ========== -->
+<div class="panel" id="panel-devices">
+    <div class="card">
+        <div class="ch"><div class="t">📡 Connected Devices — Localhost Network</div><button class="bbtn" onclick="fetchDevices()" style="font-size:10px;padding:5px 12px">Scan</button></div>
+        <div class="cb"><div id="devices-list"></div></div>
+    </div>
+</div>
+
+<!-- ========== UPLOAD TAB ========== -->
+<div class="panel" id="panel-upload">
+    <div class="card">
+        <div class="ch"><div class="t">📁 Upload to Command Line</div></div>
+        <div class="cb">
+            <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click()">
+                <div class="icon">📤</div>
+                <div class="label">Drop files here or click to upload<br><span style="font-size:10px;color:var(--dim)">Supports: .py, .js, .ts, .html, .css, .json, .txt, .md, .png, .jpg, .csv</span></div>
+            </div>
+            <input type="file" id="file-input" multiple style="display:none" onchange="handleUpload(this.files)">
+            <div id="upload-list" style="margin-top:12px"></div>
+        </div>
+    </div>
+</div>
+
+<!-- ========== GITHUB TAB ========== -->
+<div class="panel" id="panel-github">
+    <div class="card">
+        <div class="ch"><div class="t">🔗 GitHub Connector</div></div>
+        <div class="cb">
+            <div class="gh-status">
+                <div class="dot off" id="gh-dot"></div>
+                <span style="font-size:11px" id="gh-status-txt">Not connected</span>
+            </div>
+            <div class="gh-info">
+                <p>GitHub integration pushes all agent output to private repos:</p>
+                <p style="margin-top:6px;color:var(--cyan)">📂 octopus-logs/ <span style="color:var(--dim)">— Chat logs from every agent session</span></p>
+                <p style="color:var(--green)">📂 octopus-projects/ <span style="color:var(--dim)">— MAIN project code + dependencies</span></p>
+                <p style="color:var(--purple)">📂 octopus-agents/ <span style="color:var(--dim)">— System codebase</span></p>
+                <div style="margin-top:16px;padding:12px;border:1px solid var(--border);border-radius:4px">
+                    <p style="font-size:11px;color:var(--orange);margin-bottom:8px">⚠️ Setup Required</p>
+                    <p style="font-size:10px;color:var(--txt2)">To connect GitHub, create a Personal Access Token (PAT) and add it to your <code style="color:var(--cyan)">.env</code> file:</p>
+                    <pre style="background:var(--bg);padding:10px;margin-top:8px;border-radius:3px;font-size:10px;color:var(--green)">GITHUB_TOKEN=ghp_your_token_here
+GITHUB_OWNER=your_username</pre>
+                    <p style="font-size:9px;color:var(--dim);margin-top:8px">Go to GitHub → Settings → Developer Settings → Personal Access Tokens → Generate New Token (classic)<br>Scopes needed: repo, workflow</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ========== SYSTEM TAB ========== -->
+<div class="panel" id="panel-system">
+    <div class="card">
+        <div class="ch"><div class="t">🖥️ System Resources</div></div>
+        <div class="cb"><div class="stats" id="sys-stats"></div></div>
+    </div>
+    <div class="card" style="margin-top:14px">
+        <div class="ch"><div class="t">🔌 Provider Status</div></div>
+        <div class="cb"><div id="provider-status"></div></div>
+    </div>
+</div>
+
+</div>
+
+<script>
+const API = window.location.origin;
+let agents = [], pipeEvents = [], ws = null;
+
+const POS = {
+    orchestrator:{x:450,y:130},pm:{x:150,y:90},dev:{x:250,y:340},qa:{x:450,y:380},
+    critic:{x:650,y:340},review:{x:750,y:90},devops:{x:150,y:260},automation:{x:750,y:260},research:{x:450,y:20}
+};
+const CLR = {orchestrator:'#ff00ff',pm:'#00ffff',dev:'#00ff41',qa:'#ffff00',critic:'#ff4444',review:'#ff8800',devops:'#aa44ff',automation:'#44ffaa',research:'#4488ff'};
+const EMJ = {orchestrator:'🧠',pm:'📋',dev:'⚡',qa:'🧪',critic:'🔥',review:'🔍',devops:'🚀',automation:'🤖',research:'📡'};
+
+// === INIT ===
+document.addEventListener('DOMContentLoaded', () => {
+    fetchStatus(); fetchAgents(); fetchPipeline(); fetchSystemInfo(); fetchProjects(); fetchDevices(); connectWS();
+    setInterval(fetchSystemInfo, 5000);
+    setInterval(fetchPipeline, 3000);
+    document.getElementById('chat-input').addEventListener('keypress', e => { if(e.key==='Enter') sendChat(); });
+
+    // Tab switching
+    document.querySelectorAll('.tab').forEach(t => {
+        t.addEventListener('click', () => {
+            document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+            document.querySelectorAll('.panel').forEach(x => x.classList.remove('active'));
+            t.classList.add('active');
+            document.getElementById('panel-'+t.dataset.tab).classList.add('active');
+        });
+    });
+});
+
+// === API ===
+async function fetchStatus() {
+    try {
+        const r = await (await fetch(`${API}/api/status`)).json();
+        const d = document.getElementById('lm-dot'), t = document.getElementById('lm-txt');
+        if (r.lm_studio_connected) { d.className='dot on'; t.textContent='LM Studio: Connected'; }
+        else { d.className='dot off'; t.textContent='LM Studio: Disconnected'; }
+        document.getElementById('model-count').textContent = `${r.models_available} Models`;
+    } catch(e) { document.getElementById('lm-dot').className='dot off'; document.getElementById('lm-txt').textContent='Server: Offline'; }
+}
+
+async function fetchAgents() {
+    try {
+        const r = await (await fetch(`${API}/api/agents`)).json();
+        agents = r.agents; renderAgentCards(); renderOctopus();
+    } catch(e) {}
+}
+
+async function fetchPipeline() {
+    try {
+        const r = await (await fetch(`${API}/api/pipeline`)).json();
+        pipeEvents = r.events||[]; renderPipeline();
+    } catch(e) {}
+}
+
+async function fetchSystemInfo() {
+    try {
+        const r = await (await fetch(`${API}/api/system`)).json();
+        renderSystem(r);
+    } catch(e) {}
+}
+
+async function fetchProjects() {
+    try {
+        const r = await (await fetch(`${API}/api/projects`)).json();
+        renderKanban(r.board); document.getElementById('proj-cnt').textContent=`${r.total} projects`;
+    } catch(e) {}
+}
+
+async function fetchDevices() {
+    try {
+        const r = await (await fetch(`${API}/api/devices`)).json();
+        renderDevices(r.devices);
+    } catch(e) { document.getElementById('devices-list').innerHTML='<p style="color:var(--red);font-size:11px">Failed to scan</p>'; }
+}
+
+// === WEBSOCKET ===
+function connectWS() {
+    try {
+        ws = new WebSocket(`ws://${window.location.host}/ws`);
+        ws.onopen = () => { document.getElementById('ws-dot').className='dot on'; };
+        ws.onmessage = evt => {
+            const d = JSON.parse(evt.data);
+            if(d.type==='state_update') {
+                Object.entries(d.agents).forEach(([role,s]) => {
+                    const a = agents.find(x=>x.role===role);
+                    if(a) { a.status=s.status; a.model=s.model; }
+                });
+                renderAgentCards();
+                if(d.pipeline_events) renderPipeline(d.pipeline_events);
+                if(d.benchmark_status==='running') updateBenchProgress(d.benchmark_progress);
+            }
+        };
+        ws.onclose = () => { document.getElementById('ws-dot').className='dot off'; setTimeout(connectWS,3000); };
+    } catch(e) { document.getElementById('ws-dot').className='dot off'; }
+}
+
+// === RENDERERS ===
+function renderOctopus() {
+    const svg = document.getElementById('octopus-svg');
+    const brain = POS.orchestrator;
+    let h = '';
+    // Tentacles
+    Object.entries(POS).forEach(([role,pos]) => {
+        if(role==='orchestrator') return;
+        const c = CLR[role], a = agents.find(x=>x.role===role), act = a&&a.status==='busy';
+        h += `<line class="tentacle-line ${act?'active':''}" x1="${brain.x}" y1="${brain.y}" x2="${pos.x}" y2="${pos.y}" stroke="${c}" stroke-width="2" opacity="0.4" id="t-${role}"/>`;
+    });
+    // Nodes
+    Object.entries(POS).forEach(([role,pos]) => {
+        const c = CLR[role], a = agents.find(x=>x.role===role), isBrain = role==='orchestrator';
+        const r = isBrain?42:28, st = a?a.status:'offline', mdl = a&&a.model?a.model.split('/').pop().substring(0,18):'No model';
+        h += `<circle cx="${pos.x}" cy="${pos.y}" r="${r+7}" fill="none" stroke="${c}" stroke-width="1" opacity="0.2"><animate attributeName="r" values="${r+4};${r+10};${r+4}" dur="3s" repeatCount="indefinite"/></circle>`;
+        h += `<circle cx="${pos.x}" cy="${pos.y}" r="${r}" fill="${c}22" stroke="${c}" stroke-width="2" style="cursor:pointer" onclick="inspectAgent('${role}')"/>`;
+        if(st==='busy') h += `<circle cx="${pos.x}" cy="${pos.y}" r="${r+3}" fill="none" stroke="${c}" stroke-width="2" stroke-dasharray="6 3" opacity="0.8"><animateTransform attributeName="transform" type="rotate" from="0 ${pos.x} ${pos.y}" to="360 ${pos.x} ${pos.y}" dur="2s" repeatCount="indefinite"/></circle>`;
+        h += `<text x="${pos.x}" y="${pos.y+4}" text-anchor="middle" font-size="${isBrain?22:16}" dominant-baseline="middle" pointer-events="none">${EMJ[role]}</text>`;
+        h += `<text class="node-label" x="${pos.x}" y="${pos.y+r+14}">${a?a.name:role}</text>`;
+        h += `<text class="node-status" x="${pos.x}" y="${pos.y+r+26}" fill="${st==='busy'?'#ffff00':st==='idle'?'#00ff41':'#555'}">${st.toUpperCase()}</text>`;
+        h += `<text class="node-status" x="${pos.x}" y="${pos.y+r+37}" fill="${c}" opacity="0.6">${mdl}</text>`;
+    });
+    svg.innerHTML = h;
+}
+
+function renderAgentCards() {
+    document.getElementById('agents-grid').innerHTML = agents.map(a => `
+        <div class="card ac" style="border-left-color:${a.color}" onclick="inspectAgent('${a.role}')">
+            <div class="cb">
+                <div class="top"><div class="name"><span class="emoji">${a.emoji}</span>${a.name}</div><span class="badge ${a.status}">${a.status}</span></div>
+                <div class="desc">${a.description}</div>
+                <div class="model">MODEL: ${a.model?a.model.split('/').pop():'Not assigned — run benchmark'}</div>
+                ${a.benchmark_score?`<div class="score">SCORE: ${a.benchmark_score}/100</div>`:''}
+            </div>
+        </div>`).join('');
+}
+
+function renderPipeline(events) {
+    const evts = events || pipeEvents;
+    document.getElementById('pipe-cnt').textContent = `${evts.length} events`;
+    const c = document.getElementById('pipe-events');
+    if(!evts.length) { c.innerHTML='<div style="color:var(--dim);font-size:11px;padding:16px;text-align:center">No events yet. Send a task to see the flow.</div>'; return; }
+    c.innerHTML = evts.slice().reverse().map(e => {
+        const tm = e.timestamp?new Date(e.timestamp).toLocaleTimeString():'';
+        return `<div class="pe"><span class="t">${tm}</span><span style="color:${CLR[e.from]||'#888'}">${EMJ[e.from]||'👤'} ${e.from||'user'}</span><span class="arr">→</span><span style="color:${CLR[e.to]||'#888'}">${EMJ[e.to]||'👤'} ${e.to}</span><span class="typ ${e.type||'assign'}">${e.type}</span><span class="prev">${e.preview||''}</span>${e.elapsed_ms?`<span style="color:var(--green);font-size:9px">${e.elapsed_ms}ms</span>`:''}</div>`;
+    }).join('');
+}
+
+function renderSystem(info) {
+    let h = `<div class="stat"><div class="l">CPU</div><div class="v" style="color:${info.cpu_percent>80?'var(--red)':'var(--cyan)'}">${info.cpu_percent}%</div></div>`;
+    h += `<div class="stat"><div class="l">RAM</div><div class="v" style="color:${info.ram_percent>80?'var(--red)':'var(--green)'}">${info.ram_used_gb}/${info.ram_total_gb}GB</div><div class="l">${info.ram_percent}%</div></div>`;
+    if(info.gpu_name) {
+        h += `<div class="stat"><div class="l">${info.gpu_name}</div><div class="v" style="color:var(--purple)">${info.gpu_vram_used_mb}/${info.gpu_vram_total_mb}MB</div><div class="l">VRAM ${info.gpu_vram_percent}%</div></div>`;
+        h += `<div class="stat"><div class="l">GPU Load</div><div class="v" style="color:var(--orange)">${info.gpu_load_percent}%</div></div>`;
+    }
+    document.getElementById('sys-stats').innerHTML = h;
+}
+
+function renderKanban(board) {
+    ['backlog','in_progress','review','completed'].forEach((col,i) => {
+        const id = ['k-backlog','k-progress','k-review','k-done'][i];
+        const items = board[col]||[];
+        document.getElementById(id).innerHTML = items.length?items.map(t => `<div class="kcard"><div class="kt">${esc(t.title||'Untitled')}</div><div class="ka">${t.assigned_agent||'unassigned'} · ${t.created_at?new Date(t.created_at).toLocaleDateString():''}</div></div>`).join(''):'<div style="color:var(--dim);font-size:10px;text-align:center;padding:12px">Empty</div>';
+    });
+}
+
+function renderDevices(devices) {
+    if(!devices||!devices.length) { document.getElementById('devices-list').innerHTML='<p style="color:var(--dim);font-size:11px">No devices found</p>'; return; }
+    let h = '<table class="dtable"><tr><th>Hostname</th><th>IP</th><th>MAC</th><th>Status</th></tr>';
+    devices.forEach(d => {
+        h += `<tr><td>${esc(d.hostname||'unknown')}</td><td style="color:var(--cyan)">${d.ip||''}</td><td style="color:var(--dim)">${d.mac||''}</td><td><span class="dot on" style="display:inline-block;vertical-align:middle;margin-right:4px"></span>${d.status||'unknown'}</td></tr>`;
+    });
+    h += '</table>';
+    document.getElementById('devices-list').innerHTML = h;
+}
+
+// === CHAT ===
+async function sendChat() {
+    const input = document.getElementById('chat-input'), msg = input.value.trim();
+    if(!msg) return;
+    const target = document.getElementById('chat-target').value;
+    const msgs = document.getElementById('chat-msgs'), btn = document.getElementById('chat-send');
+    msgs.innerHTML += `<div class="msg user"><div class="mh">YOU → ${target?EMJ[target]+' '+target.toUpperCase():'🧠 ORCHESTRATOR'}</div>${esc(msg)}</div>`;
+    msgs.scrollTop = msgs.scrollHeight; input.value=''; btn.disabled=true; btn.textContent='PROCESSING...';
+    try {
+        const body = {message:msg}; if(target) body.agent=target;
+        const r = await (await fetch(`${API}/api/chat`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json();
+        if(r.error) { msgs.innerHTML += `<div class="msg agent"><div class="mh" style="color:var(--red)">ERROR</div>${esc(r.error)}</div>`; }
+        else if(r.results) {
+            msgs.innerHTML += `<div class="msg agent"><div class="mh">🧠 ORCHESTRATOR PLAN</div><pre>${esc(JSON.stringify(r.plan,null,2))}</pre></div>`;
+            r.results.forEach(x => { msgs.innerHTML += `<div class="msg agent"><div class="mh">${EMJ[x.agent]||'🤖'} ${(x.agent||'agent').toUpperCase()} (${x.elapsed_ms}ms)</div><pre>${esc(x.content||x.error||'No output')}</pre></div>`; });
+        } else {
+            msgs.innerHTML += `<div class="msg agent"><div class="mh">${EMJ[target]||'🧠'} ${(target||'ORCHESTRATOR').toUpperCase()} (${r.elapsed_ms}ms)</div><pre>${esc(r.content||JSON.stringify(r,null,2))}</pre></div>`;
+        }
+    } catch(e) { msgs.innerHTML += `<div class="msg agent"><div class="mh" style="color:var(--red)">CONNECTION ERROR</div>${esc(e.message)}</div>`; }
+    btn.disabled=false; btn.textContent='EXECUTE'; msgs.scrollTop=msgs.scrollHeight; fetchPipeline(); fetchAgents(); fetchProjects();
+}
+
+// === BENCHMARK ===
+async function runBenchmark() {
+    const btn=document.getElementById('bench-btn'), prog=document.getElementById('bench-progress');
+    btn.disabled=true; btn.textContent='Running...'; prog.style.display='block';
+    try { await fetch(`${API}/api/benchmark/run`,{method:'POST'}); pollBench(); } catch(e) { btn.disabled=false; btn.textContent='Run Benchmark'; prog.style.display='none'; }
+}
+async function pollBench() {
+    const r = await (await fetch(`${API}/api/benchmark/status`)).json();
+    if(r.status==='running') { updateBenchProgress(r.progress); setTimeout(pollBench,2000); }
+    else if(r.status==='complete') { document.getElementById('bench-btn').disabled=false; document.getElementById('bench-btn').textContent='Run Benchmark'; renderBenchResults(); fetchAgents(); }
+    else { document.getElementById('bench-btn').disabled=false; document.getElementById('bench-btn').textContent='Run Benchmark'; document.getElementById('ptxt').textContent='Error: Check LM Studio'; }
+}
+function updateBenchProgress(p) {
+    if(!p) return;
+    const pct = p.total>0?Math.round((p.done/p.total)*100):0;
+    document.getElementById('pfill').style.width=pct+'%';
+    document.getElementById('ptxt').textContent=`${p.done}/${p.total} — Testing ${p.current_model} as ${p.current_role}`;
+}
+async function renderBenchResults() {
+    try {
+        const r = await (await fetch(`${API}/api/benchmark/results`)).json();
+        const c = document.getElementById('bench-results');
+        if(r.assignments&&r.assignments.length>0) {
+            let h='<h3 style="color:var(--cyan);font-size:12px;margin-bottom:10px;letter-spacing:2px">MODEL ASSIGNMENTS</h3>';
+            h+='<table class="btable"><tr><th>Role</th><th>Model</th><th>Score</th></tr>';
+            r.assignments.forEach(a => { const c=CLR[a.role]||'#888'; h+=`<tr><td style="color:${c}">${EMJ[a.role]||''} ${a.role}</td><td>${a.model_id}</td><td><span style="display:inline-block;height:5px;width:${a.benchmark_score}px;background:${c};border-radius:2px;margin-right:5px;vertical-align:middle"></span>${a.benchmark_score}</td></tr>`; });
+            h+='</table>'; c.innerHTML=h;
+        }
+        document.getElementById('bench-progress').style.display='none';
+    } catch(e) {}
+}
+
+// === UPLOAD ===
+function handleUpload(files) {
+    const list = document.getElementById('upload-list');
+    Array.from(files).forEach(f => {
+        list.innerHTML += `<div style="font-size:11px;padding:4px 0;color:var(--cyan)">📄 ${esc(f.name)} <span style="color:var(--dim)">(${(f.size/1024).toFixed(1)} KB)</span> <span style="color:var(--green)">— Ready to process</span></div>`;
+    });
+}
+
+// === UTILS ===
+function esc(s) { return s?s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'):''; }
+function inspectAgent(role) {
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));
+    document.querySelector('[data-tab="chat"]').classList.add('active');
+    document.getElementById('panel-chat').classList.add('active');
+    document.getElementById('chat-target').value = role==='orchestrator'?'':role;
+    document.getElementById('chat-input').focus();
+}
+</script>
+</body>
+</html>
